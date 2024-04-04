@@ -21,4 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "Avancada2.0"
 include(":app")
- 
+include(":Calculos")

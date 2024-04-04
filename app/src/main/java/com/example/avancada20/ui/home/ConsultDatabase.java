@@ -4,6 +4,7 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
+import com.example.calculos.GeoCalculator;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -12,7 +13,10 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Handler;
 
 public class ConsultDatabase extends Thread{
     private List<Region> regions;
@@ -21,7 +25,10 @@ public class ConsultDatabase extends Thread{
     private double longitude;
 
     private Semaphore semaphore;
+
+
     private DatabaseReference referencia = FirebaseDatabase.getInstance().getReference();
+    private static final long TIMEOUT_MILLISECONDS = 5000;
 
     public ConsultDatabase(List<Region> regions, String locationName, double latitude, double longitude, Semaphore semaphore) {
         this.regions = regions;
@@ -29,6 +36,7 @@ public class ConsultDatabase extends Thread{
         this.latitude = latitude;
         this.longitude = longitude;
         this.semaphore = semaphore;
+
     }
 
     @Override
@@ -92,9 +100,11 @@ public class ConsultDatabase extends Thread{
     }
 
 
-    private boolean checkRegionProximity(double latitude, double longitude, List<Region>  regionsFromDatabase) {
-        for (Region region :  regionsFromDatabase) {
-            double distance = calculateDistance(region.getLatitude(), region.getLongitude(), latitude, longitude);
+
+    private boolean checkRegionProximity(double latitude, double longitude, List<Region> regions) {
+        GeoCalculator cal = new GeoCalculator();
+        for (Region region : regions) {
+            double distance = cal.calculateDistance(region.getLatitude(), region.getLongitude(), latitude, longitude);
             if (distance < 30) {
                 return true;
             }
@@ -103,6 +113,7 @@ public class ConsultDatabase extends Thread{
     }
     private void consultarBanco(final ConsultaCallback callback) {
         DatabaseReference regiao = referencia.child("regioes");
+        List<Region> list = new ArrayList<>();
         regiao.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -116,7 +127,9 @@ public class ConsultDatabase extends Thread{
                     lista.add(region);
                 }
                 // Notificar o callback com a lista de regiões após a conclusão da consulta
-                callback.onRegionsLoaded(lista);
+                 callback.onRegionsLoaded(lista);
+
+
             }
 
             @Override
@@ -126,22 +139,9 @@ public class ConsultDatabase extends Thread{
                 callback.onCancelled();
             }
         });
+
     }
 
-
-    private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-        // Implemente a lógica para calcular a distância entre duas coordenadas geográficas
-        // Aqui está um exemplo simplificado usando a fórmula de Haversine:
-        double R = 6371000; // Raio da Terra em metros
-        double dLat = Math.toRadians(lat2 - lat1);
-        double dLon = Math.toRadians(lon2 - lon1);
-        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
-                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        double distance = R * c;
-        return distance;
-    }
 
 }
 
